@@ -68,9 +68,11 @@ def init_database():
             cur.execute("CREATE POLICY anon_all_%s ON %s FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);" % (table, table))
         cur.close()
         conn.close()
-        logging.info("Database tables created successfully!")
+        # Reload PostgREST schema cache
+        cur.execute("NOTIFY pgrst, 'reload schema';")
+        logging.info("Database tables created successfully! Schema cache reloaded.")
     except Exception as e:
-        logging.error(f"Database init error: {e}")
+        logging.error(f"Database init error: {type(e).__name__}: {e}")
 
 init_database()
 
