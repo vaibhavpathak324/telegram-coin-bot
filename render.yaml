@@ -1,0 +1,11 @@
+services:
+  - type: worker
+    name: telegram-coin-bot
+    runtime: docker
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
