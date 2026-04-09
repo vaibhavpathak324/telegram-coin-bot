@@ -1,4 +1,5 @@
 python-telegram-bot==21.3
 supabase==2.7.2
 httpx>=0.25.0
-psycopg2-binary==2.9.9
+telethon==1.36.0
+cryptg==0.4.0
