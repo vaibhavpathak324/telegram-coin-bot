@@ -121,7 +121,7 @@ def api_users():
 
         q = s.table("users").select("*", count="exact")
         if search:
-            q = q.or_(f"username.ilike.%{<search}%,first_name.ilike.%{search}%,telegram_id.eq.{search}")
+            q = q.or_(f"username.ilike.%{search}%,first_name.ilike.%{search}%,telegram_id.eq.{search}")
 
         start = (page - 1) * per_page
         res = q.order("coins", desc=True).range(start, start + per_page - 1).execute()
