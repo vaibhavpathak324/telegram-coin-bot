@@ -29,7 +29,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and
 def get_user(user_id: int) -> dict:
     if not supabase: return None
     try:
-        res = supabase.table("users").select("*").eq("user_id", str(user_id)).execute()
+        res = supabase.table("users").select("*").eq("telegram_id", str(user_id)).execute()
         return res.data[0] if res.data else None
     except Exception as e:
         logger.error(f"get_user error: {e}")
@@ -38,7 +38,7 @@ def get_user(user_id: int) -> dict:
 def create_user(user_id: int, username: str = "", first_name: str = "") -> dict:
     if not supabase: return None
     try:
-        data = {"user_id": str(user_id), "username": username or "", "first_name": first_name or "", "coins": 0, "daily_streak": 0, "last_daily": None, "referral_code": f"ref_{user_id}", "referred_by": None, "banned": False, "created_at": datetime.utcnow().isoformat()}
+        data = {"telegram_id": str(user_id), "username": username or "", "first_name": first_name or "", "coins": 0, "streak": 0, "last_daily": None, "referral_code": f"ref_{user_id}", "referred_by": None, "banned": False, "created_at": datetime.utcnow().isoformat()}
         res = supabase.table("users").insert(data).execute()
         return res.data[0] if res.data else data
     except Exception as e:
@@ -56,14 +56,14 @@ def update_coins(user_id: int, amount: int):
         user = get_user(user_id)
         if user:
             new_coins = max(0, user.get("coins", 0) + amount)
-            supabase.table("users").update({"coins": new_coins}).eq("user_id", str(user_id)).execute()
+            supabase.table("users").update({"coins": new_coins}).eq("telegram_id", str(user_id)).execute()
     except Exception as e:
         logger.error(f"update_coins error: {e}")
 
 def log_transaction(user_id: int, tx_type: str, amount: int, details: str = ""):
     if not supabase: return
     try:
-        supabase.table("transactions").insert({"user_id": str(user_id), "type": tx_type, "amount": amount, "details": details, "created_at": datetime.utcnow().isoformat()}).execute()
+        supabase.table("transactions").insert({"telegram_id": str(user_id), "type": tx_type, "amount": amount, "details": details, "created_at": datetime.utcnow().isoformat()}).execute()
     except Exception as e:
         logger.error(f"log_transaction error: {e}")
 
@@ -77,7 +77,7 @@ def get_leaderboard(limit: int = 10):
 def get_userbot_session(user_id: int):
     if not supabase: return None
     try:
-        res = supabase.table("userbot_sessions").select("*").eq("user_id", str(user_id)).execute()
+        res = supabase.table("userbot_sessions").select("*").eq("telegram_id", str(user_id)).execute()
         return res.data[0] if res.data else None
     except: return None
 
@@ -85,9 +85,9 @@ def save_userbot_session(user_id: int, phone: str, session_string: str):
     if not supabase: return
     try:
         existing = get_userbot_session(user_id)
-        data = {"user_id": str(user_id), "phone": phone, "session_string": session_string, "active": True, "created_at": datetime.utcnow().isoformat()}
+        data = {"telegram_id": str(user_id), "phone": phone, "session_string": session_string, "active": True, "created_at": datetime.utcnow().isoformat()}
         if existing:
-            supabase.table("userbot_sessions").update(data).eq("user_id", str(user_id)).execute()
+            supabase.table("userbot_sessions").update(data).eq("telegram_id", str(user_id)).execute()
         else:
             supabase.table("userbot_sessions").insert(data).execute()
     except Exception as e:
@@ -101,7 +101,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             u = get_user(user.id)
             if u and not u.get("referred_by"):
-                supabase.table("users").update({"referred_by": referrer_id}).eq("user_id", str(user.id)).execute()
+                supabase.table("users").update({"referred_by": referrer_id}).eq("telegram_id", str(user.id)).execute()
                 update_coins(int(referrer_id), 50)
                 update_coins(user.id, 25)
                 log_transaction(int(referrer_id), "referral_bonus", 50, f"Referred {user.id}")
@@ -115,7 +115,7 @@ async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     u = ensure_user(user.id, user.username, user.first_name)
     coins = u.get("coins", 0) if u else 0
-    streak = u.get("daily_streak", 0) if u else 0
+    streak = u.get("streak", 0) if u else 0
     await update.message.reply_text(f"\ud83d\udcb0 Your Balance\n\nCoins: {coins:,}\nDaily Streak: {streak} days")
 
 async def spin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -150,13 +150,13 @@ async def daily(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 mins = int((remaining % 3600) // 60)
                 await update.message.reply_text(f"\u23f0 Come back in {hours}h {mins}m for your daily reward!")
                 return
-            streak = u.get("daily_streak", 0) + 1 if (now - last_dt).total_seconds() < 172800 else 1
+            streak = u.get("streak", 0) + 1 if (now - last_dt).total_seconds() < 172800 else 1
         except: streak = 1
     else: streak = 1
     reward = min(10 + (streak * 2), 50)
     update_coins(user.id, reward)
     log_transaction(user.id, "daily", reward, f"Streak: {streak}")
-    supabase.table("users").update({"last_daily": now.isoformat(), "daily_streak": streak}).eq("user_id", str(user.id)).execute()
+    supabase.table("users").update({"last_daily": now.isoformat(), "streak": streak}).eq("telegram_id", str(user.id)).execute()
     await update.message.reply_text(f"\ud83c\udf81 Daily Reward!\n\nStreak: {streak} days\nReward: +{reward} coins\nBonus increases with streak!")
 
 async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -237,11 +237,11 @@ async def admin_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("DB not configured.")
         return
     try:
-        users = supabase.table("users").select("user_id").execute()
+        users = supabase.table("users").select("telegram_id").execute()
         sent = 0
         for u in (users.data or []):
             try:
-                await context.bot.send_message(chat_id=int(u["user_id"]), text=msg)
+                await context.bot.send_message(chat_id=int(u["telegram_id"]), text=msg)
                 sent += 1
             except: pass
         await update.message.reply_text(f"\u2705 Broadcast sent to {sent} users.")
@@ -268,7 +268,7 @@ async def admin_ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Usage: /ban <user_id>")
         return
     try:
-        supabase.table("users").update({"banned": True}).eq("user_id", context.args[0]).execute()
+        supabase.table("users").update({"banned": True}).eq("telegram_id", context.args[0]).execute()
         await update.message.reply_text(f"\u2705 Banned user {context.args[0]}")
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
@@ -279,7 +279,7 @@ async def admin_unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Usage: /unban <user_id>")
         return
     try:
-        supabase.table("users").update({"banned": False}).eq("user_id", context.args[0]).execute()
+        supabase.table("users").update({"banned": False}).eq("telegram_id", context.args[0]).execute()
         await update.message.reply_text(f"\u2705 Unbanned user {context.args[0]}")
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
