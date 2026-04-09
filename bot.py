@@ -35,100 +35,7 @@ telethon_phone = None
 # Conversation states for login flow
 LOGIN_PHONE, LOGIN_OTP, LOGIN_2FA = range(3)
 
-# --- Health check server (keeps Render happy + prevents sleep) ---
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
 
-class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-Type', 'text/plain')
-        self.end_headers()
-        self.wfile.write(b'OK')
-    def log_message(self, format, *args):
-        pass
-
-def start_health_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), HealthHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    logger.info(f"Health server running on port {port}")
-
-# --- Keep-alive pinger ---
-import httpx as _httpx
-
-async def keep_alive(context):
-    url = os.environ.get("RENDER_EXTERNAL_URL", "https://telegram-coin-bot-hxxv.onrender.com")
-    try:
-        async with _httpx.AsyncClient() as client:
-            await client.get(url, timeout=10)
-    except:
-        pass
-
-
-# --- Health check server (keeps Render happy + prevents sleep) ---
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
-
-class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-Type', 'text/plain')
-        self.end_headers()
-        self.wfile.write(b'OK')
-    def log_message(self, format, *args):
-        pass
-
-def start_health_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), HealthHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    logger.info(f"Health server running on port {port}")
-
-# --- Keep-alive pinger ---
-import httpx as _httpx
-
-async def keep_alive(context):
-    url = os.environ.get("RENDER_EXTERNAL_URL", "https://telegram-coin-bot-hxxv.onrender.com")
-    try:
-        async with _httpx.AsyncClient() as client:
-            await client.get(url, timeout=10)
-    except:
-        pass
-
-
-# --- Health check server (keeps Render happy + prevents sleep) ---
-from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading
-
-class HealthHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-Type', 'text/plain')
-        self.end_headers()
-        self.wfile.write(b'OK')
-    def log_message(self, format, *args):
-        pass
-
-def start_health_server():
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), HealthHandler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    logger.info(f"Health server running on port {port}")
-
-# --- Keep-alive pinger ---
-import httpx as _httpx
-
-async def keep_alive(context):
-    url = os.environ.get("RENDER_EXTERNAL_URL", "https://telegram-coin-bot-hxxv.onrender.com")
-    try:
-        async with _httpx.AsyncClient() as client:
-            await client.get(url, timeout=10)
-    except:
-        pass
 
 
 # --- Helpers ---
@@ -842,23 +749,19 @@ def main():
     app.add_handler(MessageHandler(filters.CONTACT, contact_handler))
     app.add_handler(CallbackQueryHandler(button_handler))
 
-    start_health_server()
+    # --- Webhook mode (prevents Conflict errors during zero-downtime deploys) ---
+    PORT = int(os.environ.get("PORT", 10000))
+    WEBHOOK_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://telegram-coin-bot-hxxv.onrender.com")
 
-    # Schedule keep-alive ping every 5 minutes
-    app.job_queue.run_repeating(keep_alive, interval=300, first=10)
-
-    start_health_server()
-    
-    # Schedule keep-alive ping every 5 minutes
-    app.job_queue.run_repeating(keep_alive, interval=300, first=10)
-    
-    start_health_server()
-    
-    # Schedule keep-alive ping every 5 minutes
-    app.job_queue.run_repeating(keep_alive, interval=300, first=10)
-    
-    logger.info("Bot started with Telethon userbot support!")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
+    logger.info("Bot started with Telethon userbot support! (webhook mode)")
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path="webhook",
+        webhook_url=f"{WEBHOOK_URL}/webhook",
+        allowed_updates=Update.ALL_TYPES,
+        drop_pending_updates=True,
+    )
 
 if __name__ == "__main__":
     main()
