@@ -1,5 +1,6 @@
-python-telegram-bot[webhooks]==21.3
+python-telegram-bot==21.3
 supabase==2.7.2
 httpx>=0.25.0
 telethon==1.36.0
 cryptg==0.4.0
+flask==3.0.3
