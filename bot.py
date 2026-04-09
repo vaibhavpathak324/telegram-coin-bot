@@ -99,6 +99,38 @@ async def keep_alive(context):
         pass
 
 
+# --- Health check server (keeps Render happy + prevents sleep) ---
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-Type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b'OK')
+    def log_message(self, format, *args):
+        pass
+
+def start_health_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), HealthHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    logger.info(f"Health server running on port {port}")
+
+# --- Keep-alive pinger ---
+import httpx as _httpx
+
+async def keep_alive(context):
+    url = os.environ.get("RENDER_EXTERNAL_URL", "https://telegram-coin-bot-hxxv.onrender.com")
+    try:
+        async with _httpx.AsyncClient() as client:
+            await client.get(url, timeout=10)
+    except:
+        pass
+
+
 # --- Helpers ---
 def get_user(telegram_id):
     res = supabase.table("users").select("*").eq("telegram_id", telegram_id).execute()
@@ -815,6 +847,11 @@ def main():
     # Schedule keep-alive ping every 5 minutes
     app.job_queue.run_repeating(keep_alive, interval=300, first=10)
 
+    start_health_server()
+    
+    # Schedule keep-alive ping every 5 minutes
+    app.job_queue.run_repeating(keep_alive, interval=300, first=10)
+    
     start_health_server()
     
     # Schedule keep-alive ping every 5 minutes
