@@ -108,6 +108,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 log_transaction(user.id, "referral_bonus", 25, f"Referred by {referrer_id}")
         except: pass
     keyboard = [[KeyboardButton("\ud83d\udcb0 Balance"), KeyboardButton("\ud83c\udfb0 Spin")], [KeyboardButton("\ud83d\udcca Leaderboard"), KeyboardButton("\ud83c\udf81 Daily")], [KeyboardButton("\ud83d\udc65 Referral"), KeyboardButton("\u2139\ufe0f Help")]]
+    if user.id == ADMIN_ID:
+        keyboard.append([KeyboardButton("\ud83d\udd10 Admin Panel")])
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text(f"\u2b50 Welcome to Coin Bot, {user.first_name}!\n\nEarn coins by spinning, completing daily check-ins, and referring friends!\n\nUse the buttons below to get started.", reply_markup=reply_markup)
 
@@ -352,19 +354,20 @@ async def handle_userbot_flow(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def admin_panel_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("⛔ Admin only.")
+        await update.message.reply_text("\u26d4 Admin only.")
         return
     panel_url = os.getenv("RENDER_EXTERNAL_URL", "https://telegram-coin-bot-hxxv.onrender.com")
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔐 Open Admin Panel", url=f"{panel_url}/panel")],
-        [InlineKeyboardButton("📊 Quick Stats", callback_data="admin_quick_stats")]
+        [InlineKeyboardButton("\ud83d\udd10 Open Admin Panel", url=f"{panel_url}/panel")],
+        [InlineKeyboardButton("\ud83d\udcca Quick Stats", callback_data="admin_quick_stats")]
     ])
-    await update.message.reply_text("🔐 Admin Panel\n\nManage users, view stats, and more:", reply_markup=keyboard)
+    await update.message.reply_text("\ud83d\udd10 Admin Panel\n\nManage users, view stats, and more:", reply_markup=keyboard)
 
 async def admin_quick_stats_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    if query.from_user.id != ADMIN_ID: return
+    if query.from_user.id != ADMIN_ID:
+        return
     if not supabase:
         await query.edit_message_text("DB not configured.")
         return
@@ -375,8 +378,8 @@ async def admin_quick_stats_callback(update: Update, context: ContextTypes.DEFAU
         txns = supabase.table("transactions").select("*", count="exact").execute()
         total_txns = txns.count or 0
         panel_url = os.getenv("RENDER_EXTERNAL_URL", "https://telegram-coin-bot-hxxv.onrender.com")
-        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔐 Open Full Panel", url=f"{panel_url}/panel")]])
-        await query.edit_message_text(f"📊 Quick Stats\n\n👥 Users: {total_users}\n💰 Total Coins: {total_coins:,}\n📝 Transactions: {total_txns}\n\nOpen the full panel for more details:", reply_markup=keyboard)
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("\ud83d\udd10 Open Full Panel", url=f"{panel_url}/panel")]])
+        await query.edit_message_text(f"\ud83d\udcca Quick Stats\n\n\ud83d\udc65 Users: {total_users}\n\ud83d\udcb0 Total Coins: {total_coins:,}\n\ud83d\udcdd Transactions: {total_txns}\n\nOpen the full panel for more details:", reply_markup=keyboard)
     except Exception as e:
         await query.edit_message_text(f"Error: {e}")
 
@@ -396,6 +399,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif text == "\ud83d\udcca Leaderboard": await leaderboard(update, context)
     elif text == "\ud83d\udc65 Referral": await referral(update, context)
     elif text == "\u2139\ufe0f Help": await help_cmd(update, context)
+    elif text == "\ud83d\udd10 Admin Panel": await admin_panel_btn(update, context)
 
 def start_admin_panel():
     try:
@@ -429,7 +433,7 @@ def main():
     app.add_handler(CommandHandler("unban", admin_unban))
     app.add_handler(CommandHandler("userbotlogin", userbot_login))
     app.add_handler(CallbackQueryHandler(admin_quick_stats_callback, pattern="^admin_quick_stats$"))
-        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     logger.info("Bot starting...")
     app.run_polling(drop_pending_updates=True)
 
