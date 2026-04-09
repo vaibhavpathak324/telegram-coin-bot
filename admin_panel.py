@@ -121,7 +121,7 @@ def api_users():
 
         q = s.table("users").select("*", count="exact")
         if search:
-            q = q.or_(f"username.ilike.%{<search}%,first_name.ilike.%{search}%,user_id.eq.{search}")
+            q = q.or_(f"username.ilike.%{<search}%,first_name.ilike.%{search}%,telegram_id.eq.{search}")
 
         start = (page - 1) * per_page
         res = q.order("coins", desc=True).range(start, start + per_page - 1).execute()
@@ -149,7 +149,7 @@ def api_update_coins(user_id):
     amount = data.get("amount", 0)
     action = data.get("action", "set")  # set, add, subtract
     try:
-        user = s.table("users").select("*").eq("user_id", user_id).single().execute()
+        user = s.table("users").select("*").eq("telegram_id", user_id).single().execute()
         current = user.data.get("coins", 0)
 
         if action == "add":
@@ -159,7 +159,7 @@ def api_update_coins(user_id):
         else:
             new_val = int(amount)
 
-        s.table("users").update({"coins": new_val}).eq("user_id", user_id).execute()
+        s.table("users").update({"coins": new_val}).eq("telegram_id", user_id).execute()
         return jsonify({"ok": True, "new_coins": new_val})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -176,7 +176,7 @@ def api_ban_user(user_id):
     data = request.get_json(silent=True) or {}
     banned = data.get("banned", True)
     try:
-        s.table("users").update({"banned": banned}).eq("user_id", user_id).execute()
+        s.table("users").update({"banned": banned}).eq("telegram_id", user_id).execute()
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -234,14 +234,14 @@ def api_broadcast():
         return jsonify({"error": "Empty message"}), 400
 
     try:
-        users = s.table("users").select("user_id").execute()
+        users = s.table("users").select("telegram_id").execute()
         sent = 0
         failed = 0
         for u in (users.data or []):
             try:
                 resp = http_req.post(
                     f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-                    json={"chat_id": u["user_id"], "text": message, "parse_mode": "HTML"},
+                    json={"chat_id": u["telegram_id"], "text": message, "parse_mode": "HTML"},
                     timeout=10
                 )
                 if resp.status_code == 200:
