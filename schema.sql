@@ -1,3 +1,5 @@
+-- Run this in Supabase SQL Editor
+
 CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     telegram_id BIGINT UNIQUE NOT NULL,
@@ -28,3 +30,11 @@ CREATE INDEX idx_users_telegram_id ON users(telegram_id);
 CREATE INDEX idx_users_referral_code ON users(referral_code);
 CREATE INDEX idx_users_coins ON users(coins DESC);
 CREATE INDEX idx_transactions_telegram_id ON transactions(telegram_id);
+
+-- Userbot session storage
+CREATE TABLE IF NOT EXISTS userbot_sessions (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    session_string TEXT NOT NULL,
+    phone TEXT,
+    logged_in_at TIMESTAMPTZ DEFAULT NOW()
+);
