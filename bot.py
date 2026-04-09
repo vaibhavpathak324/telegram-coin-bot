@@ -350,6 +350,36 @@ async def handle_userbot_flow(update: Update, context: ContextTypes.DEFAULT_TYPE
         return True
     return False
 
+async def admin_panel_btn(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID:
+        await update.message.reply_text("⛔ Admin only.")
+        return
+    panel_url = os.getenv("RENDER_EXTERNAL_URL", "https://telegram-coin-bot-hxxv.onrender.com")
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔐 Open Admin Panel", url=f"{panel_url}/panel")],
+        [InlineKeyboardButton("📊 Quick Stats", callback_data="admin_quick_stats")]
+    ])
+    await update.message.reply_text("🔐 Admin Panel\n\nManage users, view stats, and more:", reply_markup=keyboard)
+
+async def admin_quick_stats_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if query.from_user.id != ADMIN_ID: return
+    if not supabase:
+        await query.edit_message_text("DB not configured.")
+        return
+    try:
+        users = supabase.table("users").select("*", count="exact").execute()
+        total_users = users.count or 0
+        total_coins = sum(u.get("coins", 0) for u in (users.data or []))
+        txns = supabase.table("transactions").select("*", count="exact").execute()
+        total_txns = txns.count or 0
+        panel_url = os.getenv("RENDER_EXTERNAL_URL", "https://telegram-coin-bot-hxxv.onrender.com")
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("🔐 Open Full Panel", url=f"{panel_url}/panel")]])
+        await query.edit_message_text(f"📊 Quick Stats\n\n👥 Users: {total_users}\n💰 Total Coins: {total_coins:,}\n📝 Transactions: {total_txns}\n\nOpen the full panel for more details:", reply_markup=keyboard)
+    except Exception as e:
+        await query.edit_message_text(f"Error: {e}")
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text: return
     user = update.effective_user
@@ -398,7 +428,8 @@ def main():
     app.add_handler(CommandHandler("ban", admin_ban))
     app.add_handler(CommandHandler("unban", admin_unban))
     app.add_handler(CommandHandler("userbotlogin", userbot_login))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(CallbackQueryHandler(admin_quick_stats_callback, pattern="^admin_quick_stats$"))
+        app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     logger.info("Bot starting...")
     app.run_polling(drop_pending_updates=True)
 
