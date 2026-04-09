@@ -54,11 +54,21 @@ def login_required(f):
 def login():
     if request.method == "GET":
         return render_template("login.html")
-    data = request.get_json(silent=True) or {}
-    if data.get("password") == ADMIN_PASSWORD:
+    # Accept both JSON and form data
+    password = None
+    data = request.get_json(silent=True)
+    if data:
+        password = data.get("password")
+    else:
+        password = request.form.get("password")
+    if password == ADMIN_PASSWORD:
         session["admin_logged_in"] = True
-        return jsonify({"ok": True})
-    return jsonify({"error": "Invalid password"}), 401
+        if request.is_json:
+            return jsonify({"ok": True})
+        return redirect("/panel")
+    if request.is_json:
+        return jsonify({"error": "Invalid password"}), 401
+    return render_template("login.html", error="Invalid password")
 
 @app.route("/panel/logout")
 def logout():
